@@ -1,4 +1,4 @@
-//EventReminder System
+//Event Reminder System
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -15,10 +15,11 @@ struct Event {
     string title;
     string date; // YYYY-MM-DD
     string time; // HH:MM
+    string description;
     bool completed;
 
     string to_string() const {
-        return std::to_string(id) + "|" + title + "|" + date + "|" + time + "|" + (completed ? "1" : "0");
+        return std::to_string(id) + "|" + title + "|" + date + "|" + time + "|" + description + "|" + (completed ? "1" : "0");
     }
 
     static Event from_string(const string &line) {
@@ -31,6 +32,7 @@ struct Event {
         getline(ss, e.title, '|');
         getline(ss, e.date, '|');
         getline(ss, e.time, '|');
+        getline(ss, e.description, '|');
         getline(ss, completedStr, '|');
         e.completed = (completedStr == "1");
         return e;
@@ -109,6 +111,9 @@ void addEvent() {
     cin >> e.date;
     cout << "Enter event time (HH:MM): ";
     cin >> e.time;
+    cin.ignore();
+    cout << "Enter event description: ";
+    getline(cin, e.description);
     e.completed = false;
 
     ofstream file("events.txt", ios::app);
@@ -136,7 +141,7 @@ void viewEvents(bool onlyPending = false, bool onlyCompleted = false) {
         auto e = pq.top(); pq.pop();
         cout << "ID: " << e.id << " | " << e.title << " on " << e.date << " at " << e.time;
         if (e.completed)
-            cout << "  [Completed]";
+            cout << " [Completed]";
         else if (e.date < today)
             cout << "  [Expired]";
         else
@@ -156,7 +161,7 @@ void searchEventByDate() {
         if (e.date == date) {
             cout << "ID: " << e.id << " | " << e.title << " at " << e.time;
             if (e.completed)
-                cout << "  [Completed]";
+                cout << " [Completed]";
             else if (e.date < today)
                 cout << "  [Expired]";
             else
@@ -181,11 +186,11 @@ void searchEventByTitle() {
         if (e.title.find(keyword) != string::npos) {
             cout << "ID: " << e.id << " | " << e.title << " on " << e.date << " at " << e.time;
             if (e.completed)
-                cout << " ✅ [Completed]";
+                cout << " [Completed]";
             else if (e.date < today)
-                cout << " ❌ [Expired]";
+                cout << " [Expired]";
             else
-                cout << " ⏳ [Pending]";
+                cout << " [Pending]";
             cout << endl;
             found = true;
         }
@@ -258,4 +263,5 @@ int main() {
 
     return 0;
 }
+
 
