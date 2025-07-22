@@ -10,7 +10,8 @@
 
 using namespace std;
 
-struct Event {
+class Event {
+public:
     int id;
     string title;
     string date; // YYYY-MM-DD
@@ -47,190 +48,195 @@ struct Event {
     }
 };
 
-string getTodayDate() {
-    time_t t = time(nullptr);
-    tm* now = localtime(&t);
-    stringstream ss;
-    ss << (now->tm_year + 1900) << "-";
-    ss << setw(2) << setfill('0') << (now->tm_mon + 1) << "-";
-    ss << setw(2) << setfill('0') << now->tm_mday;
-    return ss.str();
-}
-
-int daysBetween(const string& date1, const string& date2) {
-    tm tm1 = {}, tm2 = {};
-    sscanf(date1.c_str(), "%d-%d-%d", &tm1.tm_year, &tm1.tm_mon, &tm1.tm_mday);
-    sscanf(date2.c_str(), "%d-%d-%d", &tm2.tm_year, &tm2.tm_mon, &tm2.tm_mday);
-    tm1.tm_year -= 1900; tm1.tm_mon -= 1;
-    tm2.tm_year -= 1900; tm2.tm_mon -= 1;
-    time_t time1 = mktime(&tm1);
-    time_t time2 = mktime(&tm2);
-    return difftime(time2, time1) / (60 * 60 * 24);
-}
-
-void saveEvents(const vector<Event>& events) {
-    ofstream file("events.txt");
-    for (const auto& e : events) {
-        file << e.to_string() << endl;
-    }
-}
-
-int getNextId(const vector<Event>& events) {
-    int maxId = 0;
-    for (const auto& e : events) {
-        maxId = max(maxId, e.id);
-    }
-    return maxId + 1;
-}
-
-vector<Event> loadEvents() {
-    vector<Event> events;
-    ifstream file("events.txt");
-    string line;
-    string today = getTodayDate();
-    while (getline(file, line)) {
-        if (!line.empty()) {
-            Event e = Event::from_string(line);
-            if (e.date < today) {
-                e.completed = true; // Automatically mark expired events as completed
+class EventManager {
+private:
+    vector<Event> loadEvents() {
+        vector<Event> events;
+        ifstream file("events.txt");
+        string line;
+        string today = getTodayDate();
+        while (getline(file, line)) {
+            if (!line.empty()) {
+                Event e = Event::from_string(line);
+                if (e.date < today) {
+                    e.completed = true;
+                }
+                events.push_back(e);
             }
-            events.push_back(e);
+        }
+        saveEvents(events);
+        return events;
+    }
+
+    void saveEvents(const vector<Event>& events) {
+        ofstream file("events.txt");
+        for (const auto& e : events) {
+            file << e.to_string() << endl;
         }
     }
-    saveEvents(events); // Save updated completed status
-    return events;
-}
 
-void addEvent() {
-    vector<Event> events = loadEvents();
-    Event e;
-    e.id = getNextId(events);
-    cout << "Enter event title: ";
-    getline(cin >> ws, e.title);
-    cout << "Enter event date (YYYY-MM-DD): ";
-    cin >> e.date;
-    cout << "Enter event time (HH:MM): ";
-    cin >> e.time;
-    cin.ignore();
-    cout << "Enter event description: ";
-    getline(cin, e.description);
-    e.completed = false;
-
-    ofstream file("events.txt", ios::app);
-    file << e.to_string() << endl;
-    cout << "Event added successfully!\n";
-}
-
-void viewEvents(bool onlyPending = false, bool onlyCompleted = false) {
-    auto events = loadEvents();
-    priority_queue<Event, vector<Event>, greater<Event>> pq;
-    string today = getTodayDate();
-    for (const auto& e : events) {
-        bool isExpired = e.date < today;
-        if ((onlyPending && (e.completed || isExpired)) || (onlyCompleted && !e.completed)) continue;
-        pq.push(e);
+    int getNextId(const vector<Event>& events) {
+        int maxId = 0;
+        for (const auto& e : events) {
+            maxId = max(maxId, e.id);
+        }
+        return maxId + 1;
     }
 
-    if (pq.empty()) {
-        cout << "No matching events found.\n";
-        return;
+    string getTodayDate() {
+        time_t t = time(nullptr);
+        tm* now = localtime(&t);
+        stringstream ss;
+        ss << (now->tm_year + 1900) << "-";
+        ss << setw(2) << setfill('0') << (now->tm_mon + 1) << "-";
+        ss << setw(2) << setfill('0') << now->tm_mday;
+        return ss.str();
     }
 
-    cout << "\nEvents:\n";
-    while (!pq.empty()) {
-        auto e = pq.top(); pq.pop();
-        cout << "ID: " << e.id << " | " << e.title << " on " << e.date << " at " << e.time;
-        if (e.completed)
-            cout << " [Completed]";
-        else if (e.date < today)
-            cout << "  [Expired]";
-        else
-            cout << "  [Pending]";
-        cout << endl;
+    int daysBetween(const string& date1, const string& date2) {
+        tm tm1 = {}, tm2 = {};
+        sscanf(date1.c_str(), "%d-%d-%d", &tm1.tm_year, &tm1.tm_mon, &tm1.tm_mday);
+        sscanf(date2.c_str(), "%d-%d-%d", &tm2.tm_year, &tm2.tm_mon, &tm2.tm_mday);
+        tm1.tm_year -= 1900; tm1.tm_mon -= 1;
+        tm2.tm_year -= 1900; tm2.tm_mon -= 1;
+        time_t time1 = mktime(&tm1);
+        time_t time2 = mktime(&tm2);
+        return difftime(time2, time1) / (60 * 60 * 24);
     }
-}
 
-void searchEventByDate() {
-    string date;
-    cout << "Enter date to search (YYYY-MM-DD): ";
-    cin >> date;
-    vector<Event> events = loadEvents();
-    bool found = false;
-    string today = getTodayDate();
-    for (const auto& e : events) {
-        if (e.date == date) {
-            cout << "ID: " << e.id << " | " << e.title << " at " << e.time;
+public:
+    void addEvent() {
+        vector<Event> events = loadEvents();
+        Event e;
+        e.id = getNextId(events);
+        cout << "Enter event title: ";
+        getline(cin >> ws, e.title);
+        cout << "Enter event date (YYYY-MM-DD): ";
+        cin >> e.date;
+        cout << "Enter event time (HH:MM): ";
+        cin >> e.time;
+        cin.ignore();
+        cout << "Enter event description: ";
+        getline(cin, e.description);
+        e.completed = false;
+
+        ofstream file("events.txt", ios::app);
+        file << e.to_string() << endl;
+        cout << "Event added successfully!\n";
+    }
+
+    void viewEvents(bool onlyPending = false, bool onlyCompleted = false) {
+        auto events = loadEvents();
+        priority_queue<Event, vector<Event>, greater<Event>> pq;
+        string today = getTodayDate();
+        for (const auto& e : events) {
+            bool isExpired = e.date < today;
+            if ((onlyPending && (e.completed || isExpired)) || (onlyCompleted && !e.completed)) continue;
+            pq.push(e);
+        }
+
+        if (pq.empty()) {
+            cout << "No matching events found.\n";
+            return;
+        }
+
+        cout << "\nEvents:\n";
+        while (!pq.empty()) {
+            auto e = pq.top(); pq.pop();
+            cout << "ID: " << e.id << " | " << e.title << " on " << e.date << " at " << e.time;
             if (e.completed)
-                cout << " [Completed]";
+                cout << "  [Completed]";
             else if (e.date < today)
                 cout << "  [Expired]";
             else
                 cout << "  [Pending]";
             cout << endl;
-            found = true;
         }
     }
-    if (!found) {
-        cout << "No events found on this date.\n";
-    }
-}
 
-void searchEventByTitle() {
-    string keyword;
-    cout << "Enter keyword to search in event title: ";
-    getline(cin >> ws, keyword);
-    vector<Event> events = loadEvents();
-    bool found = false;
-    string today = getTodayDate();
-    for (const auto& e : events) {
-        if (e.title.find(keyword) != string::npos) {
-            cout << "ID: " << e.id << " | " << e.title << " on " << e.date << " at " << e.time;
-            if (e.completed)
-                cout << " [Completed]";
-            else if (e.date < today)
-                cout << " [Expired]";
-            else
-                cout << " [Pending]";
-            cout << endl;
-            found = true;
+    void searchEventByDate() {
+        string date;
+        cout << "Enter date to search (YYYY-MM-DD): ";
+        cin >> date;
+        vector<Event> events = loadEvents();
+        bool found = false;
+        string today = getTodayDate();
+        for (const auto& e : events) {
+            if (e.date == date) {
+                cout << "ID: " << e.id << " | " << e.title << " at " << e.time;
+                if (e.completed)
+                    cout << "  [Completed]";
+                else if (e.date < today)
+                    cout << "  [Expired]";
+                else
+                    cout << "  [Pending]";
+                cout << endl;
+                found = true;
+            }
+        }
+        if (!found) {
+            cout << "No events found on this date.\n";
         }
     }
-    if (!found) {
-        cout << "No events found matching that keyword.\n";
-    }
-}
 
-void deleteEvent() {
-    int id;
-    cout << "Enter event ID to delete: ";
-    cin >> id;
-    auto events = loadEvents();
-    auto it = remove_if(events.begin(), events.end(), [&](const Event& e) {
-        return e.id == id;
-    });
-    if (it != events.end()) {
-        events.erase(it, events.end());
-        saveEvents(events);
-        cout << "Event deleted.\n";
-    } else {
-        cout << "Event not found.\n";
+    void searchEventByTitle() {
+        string keyword;
+        cout << "Enter keyword to search in event title: ";
+        getline(cin >> ws, keyword);
+        vector<Event> events = loadEvents();
+        bool found = false;
+        string today = getTodayDate();
+        for (const auto& e : events) {
+            if (e.title.find(keyword) != string::npos) {
+                cout << "ID: " << e.id << " | " << e.title << " on " << e.date << " at " << e.time;
+                if (e.completed)
+                    cout << " [Completed]";
+                else if (e.date < today)
+                    cout << " [Expired]";
+                else
+                    cout << " [Pending]";
+                cout << endl;
+                found = true;
+            }
+        }
+        if (!found) {
+            cout << "No events found matching that keyword.\n";
+        }
     }
-}
 
-void showUpcomingIn7Days() {
-    vector<Event> events = loadEvents();
-    string today = getTodayDate();
-    for (const auto& e : events) {
-        if (!e.completed) {
-            int days = daysBetween(today, e.date);
-            if (days > 0 && days <= 7) {
-                cout << "Reminder: Event '" << e.title << "' is in " << days << " day(s).\n";
+    void deleteEvent() {
+        int id;
+        cout << "Enter event ID to delete: ";
+        cin >> id;
+        auto events = loadEvents();
+        auto it = remove_if(events.begin(), events.end(), [&](const Event& e) {
+            return e.id == id;
+        });
+        if (it != events.end()) {
+            events.erase(it, events.end());
+            saveEvents(events);
+            cout << "Event deleted.\n";
+        } else {
+            cout << "Event not found.\n";
+        }
+    }
+
+    void showUpcomingIn7Days() {
+        vector<Event> events = loadEvents();
+        string today = getTodayDate();
+        for (const auto& e : events) {
+            if (!e.completed) {
+                int days = daysBetween(today, e.date);
+                if (days > 0 && days <= 7) {
+                    cout << "Reminder: Event '" << e.title << "' is in " << days << " day(s).\n";
+                }
             }
         }
     }
-}
+};
 
 int main() {
+    EventManager manager;
     int choice;
     do {
         cout << "\n--- Event Reminder System ---\n";
@@ -246,15 +252,15 @@ int main() {
         cin >> choice;
 
         switch (choice) {
-            case 1: addEvent(); break;
-            case 2: viewEvents(); break;
-            case 3: viewEvents(true, false); break;
-            case 4: viewEvents(false, true); break;
-            case 5: searchEventByDate(); break;
-            case 6: searchEventByTitle(); break;
-            case 7: deleteEvent(); break;
+            case 1: manager.addEvent(); break;
+            case 2: manager.viewEvents(); break;
+            case 3: manager.viewEvents(true, false); break;
+            case 4: manager.viewEvents(false, true); break;
+            case 5: manager.searchEventByDate(); break;
+            case 6: manager.searchEventByTitle(); break;
+            case 7: manager.deleteEvent(); break;
             case 8:
-                showUpcomingIn7Days();
+                manager.showUpcomingIn7Days();
                 cout << "Goodbye!\n";
                 break;
             default: cout << "Invalid option.\n";
@@ -263,5 +269,3 @@ int main() {
 
     return 0;
 }
-
-
